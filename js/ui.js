@@ -96,7 +96,11 @@ function movieCard(movie, opts = {}) {
           ${isFav ? '✓ Uloženo' : '+ Přidat'}
         </button>
       </div>
-      ${isWatched ? '<div class="movie-card__watched-badge">✓</div>' : ''}
+      ${opts.watchedToggle
+        ? (isWatched
+            ? `<div class="movie-card__watched-badge movie-card__watched-toggle" data-action="toggle-watched" title="Označit jako neshlédnuté" style="cursor:pointer">✓</div>`
+            : `<div class="movie-card__watched-badge movie-card__watched-toggle movie-card__watched-toggle--unseen" data-action="toggle-watched" title="Označit jako shlédnuté" style="cursor:pointer;background:rgba(0,0,0,0.55);color:rgba(255,255,255,0.7)">👁</div>`)
+        : (isWatched ? '<div class="movie-card__watched-badge">✓</div>' : '')}
       ${dateStr ? `<div class="movie-card__date-badge">${dateStr}</div>` : ''}
       ${ctxHtml}
     </div>
@@ -326,6 +330,37 @@ function attachCardEvents(container, opts = {}) {
         const newState = !isFav;
         document.querySelectorAll(`.movie-card[data-id="${movie.imdbId}"]`).forEach(c => updateCardFavState(c, newState));
         showToast(newState ? `🔖 ${movie.title} přidán` : `❌ ${movie.title} odebrán`);
+        document.dispatchEvent(new CustomEvent('favorites-changed'));
+      } else if (action === 'toggle-watched') {
+        e.stopPropagation();
+        hideMiniTrailer(card);
+        const newWatched = Storage.toggleWatched(movie.imdbId);
+        // Update all matching cards on screen
+        document.querySelectorAll(`.movie-card[data-id="${movie.imdbId}"]`).forEach(c => {
+          const overlay = c.querySelector('.movie-card__watched-overlay');
+          const badge = c.querySelector('.movie-card__watched-toggle');
+          if (overlay) overlay.style.display = newWatched ? '' : 'none';
+          else if (newWatched) {
+            const pw = c.querySelector('.movie-card__poster-wrap');
+            if (pw) { const ov = document.createElement('div'); ov.className = 'movie-card__watched-overlay'; pw.insertBefore(ov, pw.firstChild.nextSibling); }
+          }
+          if (badge) {
+            if (newWatched) {
+              badge.textContent = '✓';
+              badge.title = 'Označit jako neshlédnuté';
+              badge.style.background = '';
+              badge.style.color = '';
+              badge.classList.remove('movie-card__watched-toggle--unseen');
+            } else {
+              badge.textContent = '👁';
+              badge.title = 'Označit jako shlédnuté';
+              badge.style.background = 'rgba(0,0,0,0.55)';
+              badge.style.color = 'rgba(255,255,255,0.7)';
+              badge.classList.add('movie-card__watched-toggle--unseen');
+            }
+          }
+        });
+        showToast(newWatched ? `👁 ${movie.title} — shlédnuto` : `○ ${movie.title} — neshlédnuto`);
         document.dispatchEvent(new CustomEvent('favorites-changed'));
       } else if (action === 'ctx-menu') {
         e.stopPropagation();

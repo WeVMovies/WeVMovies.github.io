@@ -72,6 +72,10 @@ img{display:block;max-width:100%}
 .movie-card__placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-size:32px;color:var(--text3)}
 .movie-card__watched-overlay{position:absolute;inset:0;background:linear-gradient(to top,rgba(27,94,32,.55),transparent);pointer-events:none}
 .movie-card__watched-badge{position:absolute;top:6px;left:6px;background:#388e3c;border-radius:6px;padding:3px 5px;font-size:10px;font-weight:700;color:#fff}
+.movie-card__watched-toggle--unseen{opacity:0;transition:opacity .15s}
+.movie-card:hover .movie-card__watched-toggle--unseen{opacity:1}
+.movie-card__watched-toggle{transition:background .15s,color .15s,opacity .15s}
+.movie-card__watched-toggle:hover{filter:brightness(1.2) !important}
 .movie-card__label-bar{display:none}/* replaced by label-strip */
 /* bookmark removed - quick-add button sufficient */
 .movie-card__date-badge{position:absolute;bottom:6px;left:6px;background:rgba(0,0,0,.78);border-radius:6px;padding:2px 6px;font-size:9px;font-weight:700;color:#fff}
@@ -1247,7 +1251,7 @@ const App = {
           `<div class="movie-grid">
             ${filtered.map(m => `
               <div class="movie-card-wrap" data-id="${m.imdbId}">
-                ${movieCard(m, { ctxBtn: { id: m.imdbId, data: JSON.stringify(m) } })}
+                ${movieCard(m, { ctxBtn: { id: m.imdbId, data: JSON.stringify(m) }, watchedToggle: true })}
               </div>`).join('')}
           </div>`}
       </div>`;
@@ -1274,7 +1278,7 @@ const App = {
     return `<div class="calendar-view">` + sorted.map(([year, mms]) => `
       <div class="cal-year">${year}</div>
       <div class="cal-row">
-        ${mms.map(m => `<div style="flex-shrink:0;width:100px">${movieCard(m)}</div>`).join('')}
+        ${mms.map(m => `<div style="flex-shrink:0;width:100px">${movieCard(m, { watchedToggle: true })}</div>`).join('')}
       </div>`).join('') + '</div>';
   },
 
@@ -1370,7 +1374,9 @@ const App = {
     // Card events
     const grid = document.getElementById('favs-content');
     attachCardEvents(grid, { onCardClick: m => { openMovieDetail(m).then(() => this.renderFavorites()); } });
-    document.addEventListener('favorites-changed', () => this.renderFavorites(), { once: true });
+    document.addEventListener('favorites-changed', () => {
+      if (this.currentScreen === 'favorites') this.renderFavorites();
+    }, { once: true });
 
     // Context menu — dispatched from ui.js via custom event
     document.addEventListener('card-ctx-menu', e => {
