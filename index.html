@@ -453,6 +453,57 @@ mark{background:rgba(0,201,167,.25);color:var(--accent);font-weight:700;border-r
   transition:all .15s;color:var(--text2);white-space:nowrap;flex-shrink:0}
 .sort-inline-btn:hover{border-color:var(--accent);color:var(--accent)}
 .sort-inline-btn.active{background:var(--accent);color:#000;border-color:var(--accent)}
+
+/* ── "Vše ›" button in category header ── */
+.category__see-all{background:none;border:1px solid var(--border);border-radius:8px;
+  padding:3px 10px;font-size:12px;font-weight:600;color:var(--text2);
+  cursor:pointer;transition:all .15s;white-space:nowrap;flex-shrink:0;margin-right:4px}
+.category__see-all:hover{border-color:var(--accent);color:var(--accent);background:rgba(0,201,167,.08)}
+
+/* ═══════════════════════════════════════════════════
+   TV SERIÁLY — tabs & sections
+═══════════════════════════════════════════════════ */
+.home-media-tabs{display:flex;gap:0;padding:14px 20px 0;border-bottom:1px solid var(--border)}
+.home-media-tab{padding:8px 18px;font-size:13px;font-weight:700;color:var(--text2);
+  border-bottom:2px solid transparent;cursor:pointer;transition:all .15s;background:none}
+.home-media-tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+
+/* ═══════════════════════════════════════════════════
+   TV SEASON & EPISODE STYLES
+═══════════════════════════════════════════════════ */
+.tv-season{background:var(--surface2);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.tv-season__header{display:flex;align-items:center;gap:12px;padding:12px 14px;cursor:pointer;
+  transition:background .15s;user-select:none}
+.tv-season__header:hover{background:rgba(255,255,255,.04)}
+.tv-season__thumb{width:44px;height:60px;border-radius:6px;overflow:hidden;
+  background:var(--surface);flex-shrink:0;display:flex;align-items:center;justify-content:center}
+.tv-season__info{flex:1;min-width:0}
+.tv-season__name{font-size:14px;font-weight:700;margin-bottom:2px}
+.tv-season__meta{font-size:11px;color:var(--text2)}
+.tv-season__progress{flex-shrink:0}
+.tv-season__toggle{color:var(--text3);font-size:12px;flex-shrink:0;width:20px;text-align:center}
+.tv-episode-list{display:flex;flex-direction:column;gap:1px;border-top:1px solid var(--border)}
+.tv-episode{display:flex;align-items:center;gap:10px;padding:10px 14px;
+  transition:background .15s;border-bottom:1px solid rgba(255,255,255,.04)}
+.tv-episode:last-child{border-bottom:none}
+.tv-episode--watched{background:rgba(46,125,50,.08)}
+.tv-episode--watched .tv-ep-title{color:var(--text3)}
+.tv-ep-check{width:28px;height:28px;border-radius:50%;border:2px solid var(--border);
+  display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
+  flex-shrink:0;cursor:pointer;transition:all .15s;color:var(--text3);background:none}
+.tv-ep-check:hover{border-color:var(--accent);color:var(--accent)}
+.tv-ep-check--on{background:#2e7d32;border-color:#2e7d32;color:#fff}
+.tv-ep-check--on:hover{background:#c62828;border-color:#c62828}
+.tv-ep-info{flex:1;min-width:0}
+.tv-ep-num{font-size:10px;font-weight:700;color:var(--accent);letter-spacing:.5px}
+.tv-ep-title{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tv-ep-date{font-size:10px;color:var(--text3);margin-top:1px}
+.tv-ep-thumb{width:80px;height:45px;object-fit:cover;border-radius:6px;flex-shrink:0;background:var(--surface)}
+.tv-ep-thumb--empty{display:flex;align-items:center;justify-content:center;font-size:16px;background:var(--surface2)}
+.tv-ep-play{width:32px;height:32px;border-radius:50%;background:rgba(0,201,167,.15);
+  display:flex;align-items:center;justify-content:center;color:var(--accent);
+  font-size:13px;flex-shrink:0;transition:background .15s;text-decoration:none}
+.tv-ep-play:hover{background:var(--accent);color:#000}
 </style>
 </head>
 <body data-theme="dark">
@@ -689,6 +740,10 @@ const App = {
         </div>
       </div>
       <div id="daily-slot"></div>
+      <div class="home-media-tabs" id="media-tabs">
+        <button class="home-media-tab active" data-media="movie">🎬 Filmy</button>
+        <button class="home-media-tab" data-media="tv">📺 Seriály</button>
+      </div>
       <div id="main-cats">
         ${spinner('Načítám filmy...')}
       </div>
@@ -725,6 +780,21 @@ const App = {
     document.getElementById('btn-sync').addEventListener('click', () => showSyncModal());
     document.getElementById('btn-bored').addEventListener('click', () => this.renderBored());
     document.getElementById('btn-hotnot-home').addEventListener('click', () => this.navigate('hotnot'));
+
+    // Media tabs (Filmy / Seriály)
+    document.getElementById('media-tabs').addEventListener('click', e => {
+      const tab = e.target.closest('.home-media-tab');
+      if (!tab) return;
+      document.querySelectorAll('.home-media-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      const mediaType = tab.dataset.media;
+      // Hide mood chips and daily card for TV
+      const moodSection = document.querySelector('.mood-section');
+      const dailySlot = document.getElementById('daily-slot');
+      if (moodSection) moodSection.style.display = mediaType === 'tv' ? 'none' : '';
+      if (dailySlot) dailySlot.style.display = mediaType === 'tv' ? 'none' : '';
+      this._loadMainCategories(mediaType);
+    });
 
     // Mood chips
     document.getElementById('mood-chips').addEventListener('click', async e => {
@@ -778,21 +848,45 @@ const App = {
     this._loadMainCategories();
   },
 
-  async _loadMainCategories() {
+  async _loadMainCategories(mediaType = 'movie') {
     const main = document.getElementById('main-cats');
     if (!main) return;
-    main.innerHTML = spinner('Načítám filmy...');
+    main.innerHTML = spinner('Načítám...');
     try {
-      const [popular, nowPlaying, topRated, upcoming] = await Promise.all([
-        API.getPopular(), API.getNowPlaying(), API.getTopRated(), API.getUpcoming()
-      ]);
-      const upcomingDedup = API.deduplicateAgainst(upcoming, nowPlaying);
-      main.innerHTML =
-        buildCategoryRow('popular',    '🔥 Populární',       popular,       { accentColor: '#FFB300', collapsible: true }) +
-        buildCategoryRow('nowplaying', '🎬 Právě v kinech',  nowPlaying,    { accentColor: '#00C9A7', collapsible: true }) +
-        buildCategoryRow('toprated',  '⭐ Top hodnocené',    topRated,      { accentColor: '#8E24AA', collapsible: true }) +
-        buildCategoryRow('upcoming',  '🗓 Nadcházející',     upcomingDedup, { accentColor: '#1E88E5', collapsible: true });
-      attachCategoryEvents('main-cats');
+      if (mediaType === 'tv') {
+        const [tvPopular, tvTopRated, tvOnAir, tvAiring] = await Promise.all([
+          API.getTVPopular(), API.getTVTopRated(), API.getTVOnAir(), API.getTVAiringToday()
+        ]);
+        main.innerHTML =
+          buildCategoryRow('tv-popular',  '🔥 Populární seriály',    tvPopular,  { accentColor: '#FFB300', collapsible: true }) +
+          buildCategoryRow('tv-toprated', '⭐ Nejlépe hodnocené',     tvTopRated, { accentColor: '#8E24AA', collapsible: true }) +
+          buildCategoryRow('tv-onair',    '📡 Právě vysílané',        tvOnAir,    { accentColor: '#00C9A7', collapsible: true }) +
+          buildCategoryRow('tv-airing',   '📅 Dnes na programu',      tvAiring,   { accentColor: '#1E88E5', collapsible: true });
+        // Attach TV card click override
+        const mainEl = document.getElementById('main-cats');
+        if (mainEl && !mainEl._tvClickAttached) {
+          mainEl._tvClickAttached = true;
+          mainEl.addEventListener('click', e => {
+            const card = e.target.closest('.movie-card');
+            if (!card) return;
+            if (e.target.closest('[data-action]')) return;
+            let show; try { show = JSON.parse(card.dataset.movie); } catch { return; }
+            if (show.mediaType === 'tv') { e.stopImmediatePropagation(); openTVDetail(show); }
+          }, true);
+        }
+        attachCategoryEvents('main-cats');
+      } else {
+        const [popular, nowPlaying, topRated, upcoming] = await Promise.all([
+          API.getPopular(), API.getNowPlaying(), API.getTopRated(), API.getUpcoming()
+        ]);
+        const upcomingDedup = API.deduplicateAgainst(upcoming, nowPlaying);
+        main.innerHTML =
+          buildCategoryRow('popular',    '🔥 Populární',       popular,       { accentColor: '#FFB300', collapsible: true, sectionKey: 'popular' }) +
+          buildCategoryRow('nowplaying', '🎬 Právě v kinech',  nowPlaying,    { accentColor: '#00C9A7', collapsible: true, sectionKey: 'nowplaying' }) +
+          buildCategoryRow('toprated',  '⭐ Top hodnocené',    topRated,      { accentColor: '#8E24AA', collapsible: true, sectionKey: 'toprated' }) +
+          buildCategoryRow('upcoming',  '🗓 Nadcházející',     upcomingDedup, { accentColor: '#1E88E5', collapsible: true, sectionKey: 'upcoming' });
+        attachCategoryEvents('main-cats');
+      }
     } catch(e) {
       main.innerHTML = `<div class="empty-state"><div class="empty-state__icon">⚠️</div><div class="empty-state__title">Chyba načítání</div></div>`;
     }
