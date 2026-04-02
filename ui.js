@@ -578,6 +578,16 @@ function hideMiniTrailer(card) {
 
 // ── Movie Detail ──────────────────────────────────────────────────────────────
 async function openMovieDetail(movie) {
+  // Route TV shows to dedicated TV detail
+  if (movie.mediaType === 'tv') {
+    // Ensure tmdbId is set (for items saved before tmdbId field existed)
+    if (!movie.tmdbId) {
+      movie.tmdbId = movie.id || (String(movie.imdbId).startsWith('tv_')
+        ? parseInt(String(movie.imdbId).replace('tv_', ''))
+        : parseInt(movie.imdbId));
+    }
+    return openTVDetail(movie);
+  }
   const isFav     = Storage.isFavorite(movie.imdbId);
   const isWatched = Storage.isWatched(movie.imdbId);
   const myRating  = Storage.getRating(movie.imdbId);
@@ -959,7 +969,16 @@ async function openSectionGridModal(sectionKey, title, accentColor) {
 
 // ── TV Show Detail Modal ──────────────────────────────────────────────────────
 async function openTVDetail(show) {
-  const tmdbId = show.tmdbId || show.id;
+  // Resolve the numeric TMDB id robustly
+  let tmdbId = show.tmdbId || show.id;
+  if (!tmdbId) {
+    const s = String(show.imdbId || '');
+    tmdbId = parseInt(s.startsWith('tv_') ? s.replace('tv_', '') : s) || null;
+  }
+  if (!tmdbId) { showToast('Nepodařilo se načíst detail seriálu'); return; }
+  // Stable key for episode storage — always use numeric tmdbId
+  const tvKey = String(tmdbId);
+
   const isFav     = Storage.isFavorite(show.imdbId);
   const isWatched = Storage.isWatched(show.imdbId);
 
@@ -1062,7 +1081,7 @@ async function openTVDetail(show) {
     if (progressSection) progressSection.style.display = '';
 
     const updateProgress = () => {
-      const watched = Storage.getTVProgress(show.imdbId, totalEps);
+      const watched = Storage.getTVProgress(tvKey, totalEps);
       const pct = totalEps > 0 ? Math.round(watched / totalEps * 100) : 0;
       const fill = overlay.querySelector('#_tv-prog-fill');
       const label = overlay.querySelector('#_tv-prog-label');
@@ -1086,14 +1105,14 @@ async function openTVDetail(show) {
           </div>
           <div class="tv-season__info">
             <div class="tv-season__name">${escHtml(season.name)}</div>
-            <div class="tv-season__meta" id="smeta-${show.imdbId}-${season.season_number}">
+            <div class="tv-season__meta" id="smeta-${tvKey}-${season.season_number}">
               ${season.episode_count} epizod${season.air_date ? ' · ' + season.air_date.substring(0,4) : ''}
             </div>
           </div>
-          <div class="tv-season__progress" id="sprog-${show.imdbId}-${season.season_number}"></div>
+          <div class="tv-season__progress" id="sprog-${tvKey}-${season.season_number}"></div>
           <div class="tv-season__toggle">▼</div>
         </div>
-        <div class="tv-season__episodes" id="eps-${show.imdbId}-${season.season_number}" style="display:none">
+        <div class="tv-season__episodes" id="eps-${tvKey}-${season.season_number}" style="display:none">
           <div class="spinner-wrap" style="padding:12px"><div class="spinner" style="width:20px;height:20px;border-width:2px"></div><p>Načítám epizody...</p></div>
         </div>`;
       seasonsList.appendChild(seasonDiv);
@@ -1107,10 +1126,10 @@ async function openTVDetail(show) {
       const updateSeasonProgress = (eps) => {
         const sn = season.season_number;
         const watchedEps = eps.filter(ep =>
-          Storage.isEpWatched(show.imdbId, sn, ep.episode_number)
+          Storage.isEpWatched(tvKey, sn, ep.episode_number)
         ).length;
         const total = eps.length;
-        const progEl = overlay.querySelector(`#sprog-${show.imdbId}-${sn}`);
+        const progEl = overlay.querySelector(`#sprog-${tvKey}-${sn}`);
         if (progEl) {
           if (watchedEps === 0) progEl.innerHTML = '';
           else if (watchedEps === total) progEl.innerHTML = `<span style="background:#2e7d32;color:#fff;border-radius:8px;padding:2px 8px;font-size:10px;font-weight:700">✓ Celá</span>`;
@@ -1136,7 +1155,7 @@ async function openTVDetail(show) {
           const episodes = (seasonData.episodes || []);
           const sn = season.season_number;
 
-          const allWatched = () => episodes.every(ep => Storage.isEpWatched(show.imdbId, sn, ep.episode_number));
+          const allWatched = () => episodes.every(ep => Storage.isEpWatched(tvKey, sn, ep.episode_number));
 
           epsDiv.innerHTML = `
             <div style="display:flex;align-items:center;justify-content:flex-end;padding:6px 12px 2px;gap:8px">
@@ -1144,7 +1163,7 @@ async function openTVDetail(show) {
             </div>
             <div class="tv-episode-list">
               ${episodes.map(ep => {
-                const watched = Storage.isEpWatched(show.imdbId, sn, ep.episode_number);
+                const watched = Storage.isEpWatched(tvKey, sn, ep.episode_number);
                 const epKey = `S${String(sn).padStart(2,'0')}E${String(ep.episode_number).padStart(2,'0')}`;
                 const searchQ = encodeURIComponent(`${show.originalTitle || show.title} ${epKey}`);
                 return `
@@ -1169,19 +1188,18 @@ async function openTVDetail(show) {
           const markBtn = epsDiv.querySelector('.tv-mark-season');
           markBtn.addEventListener('click', () => {
             if (allWatched()) {
-              Storage.unmarkSeasonWatched(show.imdbId, sn, episodes);
+              Storage.unmarkSeasonWatched(tvKey, sn, episodes);
               epsDiv.querySelectorAll('.tv-episode').forEach(el => el.classList.remove('tv-episode--watched'));
               epsDiv.querySelectorAll('.tv-ep-check').forEach(el => { el.textContent = '○'; el.classList.remove('tv-ep-check--on'); });
               markBtn.textContent = '✓ Označit celou sérii';
             } else {
-              Storage.markSeasonWatched(show.imdbId, sn, episodes);
+              Storage.markSeasonWatched(tvKey, sn, episodes);
               epsDiv.querySelectorAll('.tv-episode').forEach(el => el.classList.add('tv-episode--watched'));
               epsDiv.querySelectorAll('.tv-ep-check').forEach(el => { el.textContent = '✓'; el.classList.add('tv-ep-check--on'); });
               markBtn.textContent = '✕ Odznačit celou sérii';
             }
             updateSeasonProgress(episodes);
           });
-          // Keep mark button label in sync
           const syncMarkBtn = () => {
             markBtn.textContent = allWatched() ? '✕ Odznačit celou sérii' : '✓ Označit celou sérii';
           };
@@ -1192,7 +1210,7 @@ async function openTVDetail(show) {
             if (!btn) return;
             const epNum = parseInt(btn.dataset.ep);
             const seNum = parseInt(btn.dataset.season);
-            const nowWatched = Storage.toggleEpWatched(show.imdbId, seNum, epNum);
+            const nowWatched = Storage.toggleEpWatched(tvKey, seNum, epNum);
             const epRow = epsDiv.querySelector(`.tv-episode[data-ep="${epNum}"][data-season="${seNum}"]`);
             if (epRow) epRow.classList.toggle('tv-episode--watched', nowWatched);
             btn.textContent = nowWatched ? '✓' : '○';
