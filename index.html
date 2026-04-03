@@ -854,8 +854,12 @@ const App = {
     main.innerHTML = spinner('Načítám...');
     try {
       if (mediaType === 'tv') {
+        main.innerHTML = spinner('Načítám seriály...');
         const [tvPopular, tvTopRated, tvOnAir, tvAiring] = await Promise.all([
-          API.getTVPopular(), API.getTVTopRated(), API.getTVOnAir(), API.getTVAiringToday()
+          API.getTVPopular().catch(e => { console.error('getTVPopular', e); return []; }),
+          API.getTVTopRated().catch(e => { console.error('getTVTopRated', e); return []; }),
+          API.getTVOnAir().catch(e => { console.error('getTVOnAir', e); return []; }),
+          API.getTVAiringToday().catch(e => { console.error('getTVAiringToday', e); return []; }),
         ]);
         main.innerHTML =
           buildCategoryRow('tv-popular',  '🔥 Populární seriály',    tvPopular,  { accentColor: '#FFB300', collapsible: true }) +

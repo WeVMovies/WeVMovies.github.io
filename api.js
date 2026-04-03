@@ -53,6 +53,40 @@ const API = (() => {
     return results.flat();
   };
 
+  // ── TV helpers (closures, same scope as movie helpers) ─────────────────────
+  const parseTV = (j) => {
+    const release = j.first_air_date || '';
+    const votes = j.vote_count || 0;
+    return {
+      id: j.id,
+      tmdbId: j.id,
+      title: j.name || j.title || 'Neznámý název',
+      originalTitle: j.original_name || j.name || '',
+      year: release.length >= 4 ? release.substring(0, 4) : '',
+      imdbId: 'tv_' + j.id,
+      posterUrl: poster(j.poster_path),
+      backdropUrl: backdrop(j.backdrop_path),
+      rating: votes >= 10 ? (j.vote_average || 0) : 0,
+      overview: j.overview || '',
+      genreIds: j.genre_ids || [],
+      releaseDate: release,
+      mediaType: 'tv',
+      numberOfSeasons: j.number_of_seasons || null,
+    };
+  };
+
+  const fetchTVPage = async (endpoint, page = 1) => {
+    const sep = endpoint.includes('?') ? '&' : '?';
+    const data = await get(`${endpoint}${sep}language=cs-CZ&page=${page}`);
+    return (data.results || []).map(j => parseTV(j));
+  };
+
+  const fetchTVMultiPage = async (endpoint, pages = 3) => {
+    const promises = Array.from({ length: pages }, (_, i) => fetchTVPage(endpoint, i + 1));
+    const results = await Promise.all(promises);
+    return results.flat();
+  };
+
   return {
     setToken(token) { _token = token; },
     getToken() { return _token; },
@@ -260,10 +294,10 @@ const API = (() => {
 
     // ── TV Shows ────────────────────────────────────────────────────────────────
 
-    async getTVPopular()     { return tvMultiPage('/tv/popular', 3); },
-    async getTVTopRated()    { return tvMultiPage('/tv/top_rated', 3); },
-    async getTVOnAir()       { return tvMultiPage('/tv/on_the_air', 2); },
-    async getTVAiringToday() { return tvPage('/tv/airing_today', 1); },
+    async getTVPopular()     { return fetchTVMultiPage('/tv/popular', 3); },
+    async getTVTopRated()    { return fetchTVMultiPage('/tv/top_rated', 3); },
+    async getTVOnAir()       { return fetchTVMultiPage('/tv/on_the_air', 2); },
+    async getTVAiringToday() { return fetchTVPage('/tv/airing_today', 1); },
 
     async getTVDetails(tvId) {
       return get(`/tv/${tvId}?language=cs-CZ`);
@@ -283,7 +317,7 @@ const API = (() => {
       const backdrops = (data.backdrops || [])
         .filter(b => !b.iso_639_1 || b.iso_639_1 === 'en' || b.iso_639_1 === 'xx')
         .sort((a, b) => b.vote_average - a.vote_average);
-      return backdrops.slice(0, 8).map(b => `${IMG_BASE}/w780${b.file_path}`);
+      return backdrops.slice(0, 8).map(b => backdrop(b.file_path));
     },
 
     // Fetch more movies for a section (used by "show all" grid modal)
@@ -299,42 +333,12 @@ const API = (() => {
       if (!ep) return [];
       return fetchMultiPage(ep, pages);
     },
+
+    deduplicateAgainst(source, exclude) {
+      const ids = new Set(exclude.map(m => m.imdbId));
+      return source.filter(m => !ids.has(m.imdbId));
+    },
   };
-
-  // TV helpers (module-level, outside the returned object to avoid `this` issues)
-  function parseTV(j) {
-    const release = j.first_air_date || '';
-    const votes = j.vote_count || 0;
-    return {
-      id: j.id,
-      title: j.name || j.title || 'Neznámý název',
-      originalTitle: j.original_name || j.name || '',
-      year: release.length >= 4 ? release.substring(0, 4) : '',
-      imdbId: 'tv_' + j.id,
-      tmdbId: j.id,
-      posterUrl: j.poster_path ? `${IMG_BASE}/w342${j.poster_path}` : '',
-      backdropUrl: j.backdrop_path ? `${IMG_BASE}/w780${j.backdrop_path}` : '',
-      rating: votes >= 10 ? (j.vote_average || 0) : 0,
-      overview: j.overview || '',
-      genreIds: j.genre_ids || [],
-      releaseDate: release,
-      mediaType: 'tv',
-      numberOfSeasons: j.number_of_seasons || null,
-    };
-  }
-
-  async function tvPage(endpoint, page = 1) {
-    const sep = endpoint.includes('?') ? '&' : '?';
-    const data = await get(`${endpoint}${sep}language=cs-CZ&page=${page}`);
-    return (data.results || []).map(j => parseTV(j));
-  }
-
-  async function tvMultiPage(endpoint, pages = 3) {
-    const promises = Array.from({ length: pages }, (_, i) => tvPage(endpoint, i + 1));
-    const results = await Promise.all(promises);
-    return results.flat();
-  }
-
 })();
 
 const GENRE_EMOJIS = {
